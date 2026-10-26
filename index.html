@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>摸鱼笔记本</title>
+<meta name="description" content="摸鱼笔记本：把网址、账号和随手想到的事，丢进一个只存在本机的本子里。">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f2efe6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1c19" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="摸鱼笔记本">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+<script>
+  // Decide the theme before the first paint.
+  try {
+    var saved = JSON.parse(localStorage.getItem('moyu.settings.v1') || 'null');
+    var mode = (saved && saved.theme) || 'system';
+    var dark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  } catch (e) {}
+</script>
+</head>
+<body>
+<a class="skip-link" href="#noteList">跳到记录列表</a>
+
+<div class="app" id="app">
+  <aside class="activity-bar" id="activityBar" aria-label="活动栏">
+    <a class="rail-brand" href="#" id="brandLink" aria-label="摸鱼笔记本，回到备忘" data-tip="摸鱼笔记本">
+      <span class="brand-fish" aria-hidden="true">
+        <svg viewBox="0 0 32 24" fill="none">
+          <path d="M4.8 12.2c3.4-5 8.6-7.4 13.8-6.3 4 .9 6.6 3.1 8.2 6.2-1.6 3.1-4.2 5.3-8.2 6.2-5.2 1.1-10.4-1.3-13.8-6.1Z" fill="currentColor"/>
+          <path d="M7.4 12 2.5 7.4v9.2L7.4 12Z" fill="currentColor"/>
+          <circle cx="21.9" cy="10.7" r="1.05" fill="var(--bg)"/>
+          <path d="M16.6 6.2c1.5 1.9 2.3 3.8 2.3 5.9" stroke="var(--bg)" stroke-width="1.1" stroke-linecap="round" opacity=".65"/>
+        </svg>
+      </span>
+    </a>
+
+    <nav class="rail-nav" aria-label="功能">
+      <button class="rail-item active" type="button" data-space="memo" data-tip="备忘" aria-label="备忘" aria-current="page">
+        <span class="rail-glyph" data-icon="inbox" aria-hidden="true"></span>
+      </button>
+      <button class="rail-item" type="button" data-space="diary" data-tip="日记" aria-label="日记">
+        <span class="rail-glyph" data-icon="book" aria-hidden="true"></span>
+      </button>
+      <button class="rail-item" type="button" data-space="notes" data-tip="笔记" aria-label="笔记">
+        <span class="rail-glyph" data-icon="pen" aria-hidden="true"></span>
+      </button>
+      <button class="rail-item" type="button" data-space="plan" data-tip="计划" aria-label="计划">
+        <span class="rail-glyph" data-icon="plan" aria-hidden="true"></span>
+      </button>
+      <button class="rail-item" type="button" data-space="schedule" data-tip="日程" aria-label="日程">
+        <span class="rail-glyph" data-icon="calendar" aria-hidden="true"></span>
+      </button>
+    </nav>
+
+    <div class="rail-foot">
+      <button class="rail-item rail-tool" id="trashBtn" type="button" aria-label="纸篓" data-tip="纸篓">
+        <span class="rail-glyph" data-icon="trash" aria-hidden="true"></span>
+        <span class="trash-count" id="trashCount" aria-hidden="true"></span>
+      </button>
+      <button class="rail-item rail-tool" id="lockNowBtn" type="button" aria-label="上锁" data-tip="上锁" data-icon="lock" hidden></button>
+      <button class="rail-item rail-tool" id="settingsBtn" type="button" aria-label="设置" data-tip="设置" data-icon="settings"></button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="list-pane" aria-label="记录列表">
+      <div class="list-head">
+        <div class="list-space-row">
+          <span class="space-name">备忘</span>
+          <button class="head-new" id="captureBtn" type="button" title="记一条">
+            <span aria-hidden="true">+</span><span>记一条</span>
+          </button>
+        </div>
+
+        <div class="list-toolbar">
+          <div class="search" id="searchBox">
+            <span class="search-icon" data-icon="search" aria-hidden="true"></span>
+            <input id="searchInput" type="search" placeholder="搜索备忘" autocomplete="off" spellcheck="false" aria-label="搜索记录">
+            <button class="search-clear" id="searchClear" type="button" aria-label="清除搜索" data-icon="x" hidden></button>
+          </div>
+        </div>
+
+        <div class="list-meta">
+          <div class="filter-wrap" id="filterWrap">
+            <button class="filter-btn" id="filterBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="filterPop">
+              <span class="filter-btn-icon" data-icon="filter" aria-hidden="true"></span>
+              <span>筛选</span>
+              <span class="filter-badge" id="filterBadge" hidden aria-hidden="true"></span>
+            </button>
+            <div class="filter-pop" id="filterPop" role="dialog" aria-label="筛选记录" hidden></div>
+          </div>
+          <div class="filter-chips" id="filterChips" aria-label="当前筛选"></div>
+          <span class="view-count" id="viewCount">0</span>
+        </div>
+      </div>
+      <div class="note-list" id="noteList" role="listbox" aria-label="记录"></div>
+    </section>
+
+    <section class="detail-pane" id="detailPane" tabindex="-1" aria-label="记录详情"></section>
+
+    <section class="diary-space" id="diarySpace" aria-label="日记">
+      <aside class="diary-side" id="diarySide" aria-label="日记日历">
+        <div class="diary-side-head">
+          <span class="space-name">日记</span>
+          <button class="head-new" type="button" data-diary-action="today" title="写今天">
+            <span aria-hidden="true">+</span><span>写今天</span>
+          </button>
+        </div>
+        <div class="diary-calendar" id="diaryCalendar"></div>
+        <div class="diary-list-head">
+          <span id="diaryMonthLabel">本月</span>
+          <span id="diaryMonthCount">0 篇</span>
+        </div>
+        <div class="diary-list" id="diaryList" role="list"></div>
+      </aside>
+      <section class="diary-detail" id="diaryDetail" aria-label="日记正文"></section>
+    </section>
+
+    <section class="notes-space" id="notesSpace" aria-label="笔记">
+      <aside class="notes-side" id="notesSide" aria-label="笔记分类">
+        <div class="notes-side-head">
+          <span class="space-name">笔记</span>
+          <button class="head-new" type="button" data-note-action="new-note" title="写一条">
+            <span aria-hidden="true">+</span><span>写一条</span>
+          </button>
+        </div>
+        <div class="notes-tree-head">
+          <span>分类</span>
+          <button class="notes-tree-add" type="button" data-note-action="new-folder" title="新建文件夹" aria-label="新建文件夹">
+            <span data-icon="plus" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="notes-tree" id="notesTree"></div>
+        <div class="notes-list-head">
+          <span id="notesScopeLabel">全部</span>
+          <span id="notesCount">0 条</span>
+        </div>
+        <div class="notes-list" id="notesList" role="list"></div>
+      </aside>
+      <section class="notes-detail" id="notesDetail" aria-label="笔记正文"></section>
+    </section>
+
+    <section class="plan-space" id="planSpace" aria-label="计划">
+      <aside class="plan-side" id="planSide" aria-label="计划列表">
+        <div class="plan-side-head">
+          <span class="space-name">计划</span>
+          <button class="head-new" type="button" data-plan-action="new" title="新建计划">
+            <span aria-hidden="true">+</span><span>新建</span>
+          </button>
+        </div>
+        <div class="plan-list-head">
+          <span>全部计划</span>
+          <span id="planCount">0 个</span>
+        </div>
+        <div class="plan-list" id="planList" role="list"></div>
+      </aside>
+      <section class="plan-detail" id="planDetail"></section>
+    </section>
+
+    <section class="schedule-space" id="scheduleSpace" aria-label="日程">
+      <header class="sched-head">
+        <div class="sched-head-left">
+          <span class="space-name">日程</span>
+          <span class="sched-period" id="schedPeriod"></span>
+        </div>
+        <div class="sched-head-right">
+          <div class="sched-nav">
+            <button class="sched-nav-btn" type="button" data-schedule-action="prev" data-icon="chevronLeft" aria-label="上一段"></button>
+            <button class="sched-today" type="button" data-schedule-action="today">今天</button>
+            <button class="sched-nav-btn" type="button" data-schedule-action="next" data-icon="chevronRight" aria-label="下一段"></button>
+          </div>
+          <div class="sched-views" id="schedViews" role="tablist" aria-label="日程视图">
+            <button class="sched-view-btn" type="button" role="tab" data-schedule-view="day">日</button>
+            <button class="sched-view-btn" type="button" role="tab" data-schedule-view="week">周</button>
+            <button class="sched-view-btn active" type="button" role="tab" data-schedule-view="month">月</button>
+            <button class="sched-view-btn" type="button" role="tab" data-schedule-view="year">年</button>
+          </div>
+          <button class="head-new" type="button" data-schedule-action="new" title="新建日程">
+            <span aria-hidden="true">+</span><span>新建</span>
+          </button>
+          <button class="icon-btn sched-side-open" type="button" data-schedule-action="open-side" data-icon="inbox" aria-label="近期日程" title="近期日程"></button>
+        </div>
+      </header>
+      <div class="sched-shell">
+        <aside class="sched-side" id="schedSide" aria-label="近期日程">
+          <div class="sched-side-head">
+            <div><span class="sched-side-title">近期</span><span class="sched-side-count" id="schedSideCount">0 条</span></div>
+            <button class="icon-btn sched-side-close" type="button" data-schedule-action="close-side" data-icon="x" aria-label="关闭近期日程"></button>
+          </div>
+          <div class="sched-upcoming" id="schedUpcoming"></div>
+        </aside>
+        <div class="sched-main">
+          <div class="schedule-body" id="scheduleBody"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trash-space" id="trashSpace" aria-label="纸篓">
+      <header class="trash-head">
+        <div class="trash-head-left">
+          <button class="icon-btn trash-back" type="button" data-trash-action="back" data-icon="back" aria-label="返回"></button>
+          <span class="space-name">纸篓</span>
+          <span class="trash-summary" id="trashSummary"></span>
+        </div>
+        <button class="btn sm ghost" type="button" data-trash-action="empty">清空纸篓</button>
+      </header>
+      <div class="trash-tabs" id="trashTabs" role="tablist" aria-label="纸篓分类"></div>
+      <div class="trash-body" id="trashBody"></div>
+    </section>
+
+    <section class="space-stage" id="spaceStage" aria-hidden="true" aria-label="空间预览" aria-live="polite">
+      <div class="space-stage-inner">
+        <span class="space-stage-icon" id="spaceStageIcon" aria-hidden="true"></span>
+        <span class="space-stage-kicker" id="spaceStageKicker"></span>
+        <h2 id="spaceStageTitle"></h2>
+        <p id="spaceStageText"></p>
+        <button class="btn" id="spaceBackBtn" type="button">先回备忘</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="drop-veil" id="dropVeil" aria-hidden="true" hidden>
+  <div class="drop-veil-card">
+    <span class="drop-fish" data-icon="fish" aria-hidden="true"></span>
+    <strong>松手，记下来</strong>
+  </div>
+</div>
+
+<div id="overlayRoot"></div>
+<div id="contextMenu" class="context-menu" role="menu" hidden></div>
+<div id="toastRoot" class="toast-root" aria-live="polite" aria-atomic="false"></div>
+<div id="lockRoot"></div>
+<input type="file" id="fileInput" accept=".json,application/json,.html,text/html" hidden>
+
+<script src="app.js"></script>
+</body>
+</html>

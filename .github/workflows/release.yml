@@ -1,0 +1,84 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build standalone HTML
+        run: python tools/build_standalone.py
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build portable ZIP and installer
+        shell: pwsh
+        run: ./tools/build-release.ps1
+
+      - name: Test installer silently
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist/release -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $setup) { throw "No installer found" }
+          $dir = Join-Path $env:RUNNER_TEMP "moyu-install-test"
+          if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
+          $log = Join-Path $env:RUNNER_TEMP "moyu-install.log"
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList @(
+            "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-",
+            "/DIR=$dir", "/LOG=$log"
+          ) -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installer exited with $($p.ExitCode)" }
+          if (-not (Test-Path (Join-Path $dir "Moyu.exe"))) { throw "Moyu.exe was not installed" }
+          $version = (Get-Item (Join-Path $dir "Moyu.exe")).VersionInfo.FileVersion
+          if (-not $version.StartsWith("3.3.0")) { throw "Unexpected installed version: $version" }
+          $uninstaller = Join-Path $dir "unins000.exe"
+          if (-not (Test-Path $uninstaller)) { throw "Uninstaller missing" }
+          $u = Start-Process -FilePath $uninstaller -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "Uninstaller exited with $($u.ExitCode)" }
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: moyu-windows-x64
+          path: |
+            dist/release/*.zip
+            dist/release/*.exe
+            dist/release/*.html
+            dist/release/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/release/*.zip
+            dist/release/*.exe
+            dist/release/*.html
+            dist/release/SHA256SUMS.txt

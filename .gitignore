@@ -1,0 +1,33 @@
+# Build output
+dist/
+native/bin/
+native/obj/
+*.user
+*.suo
+.vs/
+
+# Local packaging tools / downloaded redistributables
+tools/InnoSetup/
+tools/installer/redist/
+
+# Local tests and previews
+_preview*
+*.log
+*.tmp
+*.bak
+TestResults/
+
+# Local data and secrets (never commit)
+.env
+*.pfx
+*.snk
+credentials.json
+api.json
+*.key
+*.pem
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/
