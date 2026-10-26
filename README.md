@@ -130,19 +130,19 @@
 
 **Windows 桌面版（推荐）**
 
-本机已经装到 **`D:\App\Moyu`**，桌面和开始菜单里都有「摸鱼笔记本」快捷方式。
+从 [Releases](https://github.com/Tea-2026/moyu-notebook/releases/latest) 下载安装包，按当前用户装进 `%LOCALAPPDATA%\Programs\Moyu`；也可以下载便携 ZIP 解压即用。
 
 - `Ctrl + Alt + N` 从任何窗口唤起速记。
 - 关窗不退出，收进系统托盘；右键托盘图标退出。
-- 更新 / 重装：先从托盘退出，再运行 [`tools\install-windows.ps1`](tools/install-windows.ps1)。脚本默认把 `dist\win` 复制到 `D:\App\Moyu`，不会碰笔记数据。
+- 更新：退出托盘图标后，再运行新版本安装包；数据不会被覆盖。
 
 **零安装单文件**
 
-双击 [`dist\摸鱼笔记本.html`](dist/摸鱼笔记本.html)，用 Edge / Chrome 打开。和桌面版数据相互独立。
+从 Releases 下载 `Moyu-3.3.0-standalone.html`，双击用 Edge / Chrome 打开。和桌面版数据相互独立。
 
 **iPhone / iPad**
 
-把 `dist\web` 部署到任意 HTTPS 静态托管，Safari 打开 →「添加到主屏幕」。配合快捷指令，可以从 Safari 直接丢一条进来。
+先运行 `python tools/build_standalone.py` 生成 `dist\web`，把它部署到任意 HTTPS 静态托管，Safari 打开 →「添加到主屏幕」。配合快捷指令，可以从 Safari 直接丢一条进来。
 
 ## 怎么记
 
