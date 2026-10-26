@@ -50,7 +50,7 @@ def main() -> None:
     )
 
     OUT.write_text(html, encoding="utf-8")
-    print(f"wrote {OUT} ({OUT.stat().st_size / 1024:.1f} KB)")
+    print(f"wrote standalone HTML ({OUT.stat().st_size / 1024:.1f} KB)")
 
     # A clean folder for static hosting / PWA deployment.
     if SITE.exists():
@@ -62,7 +62,7 @@ def main() -> None:
     shutil.copy2(ROOT / "manifest.webmanifest", SITE / "manifest.webmanifest")
     shutil.copy2(ROOT / "sw.js", SITE / "sw.js")
     shutil.copytree(ROOT / "icons", SITE / "icons", dirs_exist_ok=True)
-    print(f"wrote {SITE}")
+    print("wrote standalone web folder")
 
 
 if __name__ == "__main__":

@@ -31,6 +31,8 @@ jobs:
           python-version: "3.12"
 
       - name: Build standalone HTML
+        env:
+          PYTHONIOENCODING: utf-8
         run: python tools/build_standalone.py
 
       - name: Install Inno Setup
