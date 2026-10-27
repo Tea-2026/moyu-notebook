@@ -1,11 +1,11 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    摸鱼笔记本 · Moyu — local-first capture & notes
    ========================================================================== */
 (() => {
   'use strict';
 
   /* ---------- 0. Constants & tiny helpers ---------- */
-  const VERSION = '3.3.0';
+  const VERSION = '3.3.1';
   const VAULT_KEY = 'moyu.vault.v1';
   const BACKUP_KEY = 'moyu.vault.backup.v1';
   const SETTINGS_KEY = 'moyu.settings.v1';

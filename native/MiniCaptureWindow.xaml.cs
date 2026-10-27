@@ -26,8 +26,10 @@ public partial class MiniCaptureWindow : Window
     private bool _hasDraft;
     private bool _saving;
     private bool _animating;
-    private double _dockRight = SystemParameters.WorkArea.Right - 12;
-    private double _dockBottom = SystemParameters.WorkArea.Bottom - 12;
+    private bool _dragging;
+    private Rect _workArea = SystemParameters.WorkArea;
+    private double? _anchorLeft;
+    private double? _anchorTop;
     private DroppedContent? _draft;
 
     internal MiniCaptureWindow(Func<ExternalCapture, Task<ExternalCaptureResult>> save, Action<string>? openMain = null)
@@ -49,6 +51,18 @@ public partial class MiniCaptureWindow : Window
 
     public bool IsExpanded => _expanded;
 
+    public event Action<double, double>? PositionChanged;
+
+    public void SetSavedPosition(double? left, double? top)
+    {
+        if (left is not null && top is not null)
+        {
+            _anchorLeft = left;
+            _anchorTop = top;
+        }
+        if (!_animating && !_dragging) ApplyBounds();
+    }
+
     public void SetEnabled(bool enabled)
     {
         _enabled = enabled;
@@ -66,9 +80,8 @@ public partial class MiniCaptureWindow : Window
 
     public void SetDock(Rect workArea)
     {
-        _dockRight = workArea.Right - 12;
-        _dockBottom = workArea.Bottom - 12;
-        if (!_animating) ApplyBounds();
+        _workArea = workArea;
+        if (!_animating && !_dragging) ApplyBounds();
     }
 
     public void ShowTab()
@@ -139,17 +152,60 @@ public partial class MiniCaptureWindow : Window
 
     private void ApplyBounds()
     {
+        var work = _workArea;
         var width = _expanded ? 360.0 : 36.0;
         var height = _expanded
-            ? Math.Min(480.0, Math.Max(300.0, _dockBottom - SystemParameters.WorkArea.Top - 8))
+            ? Math.Min(480.0, Math.Max(300.0, work.Height - 16))
             : 88.0;
-        var left = Math.Max(SystemParameters.VirtualScreenLeft, _dockRight - width);
-        var top = Math.Max(SystemParameters.VirtualScreenTop, _dockBottom - height);
+        var anchorLeft = _anchorLeft ?? (work.Right - 12 - 36);
+        var anchorTop = _anchorTop ?? (work.Bottom - 12 - 88);
+        double left;
+        double top;
+
+        if (_expanded)
+        {
+            left = anchorLeft + width <= work.Right - 8 ? anchorLeft : anchorLeft + 36 - width;
+            top = anchorTop + height <= work.Bottom - 8 ? anchorTop : anchorTop + 88 - height;
+        }
+        else
+        {
+            left = anchorLeft;
+            top = anchorTop;
+        }
+
+        left = Math.Clamp(left, work.Left + 8, Math.Max(work.Left + 8, work.Right - width - 8));
+        top = Math.Clamp(top, work.Top + 8, Math.Max(work.Top + 8, work.Bottom - height - 8));
 
         if (Math.Abs(Width - width) > 0.5) Width = width;
         if (Math.Abs(Height - height) > 0.5) Height = height;
         if (Math.Abs(Left - left) > 0.5) Left = left;
         if (Math.Abs(Top - top) > 0.5) Top = top;
+    }
+
+    private void SnapAndSave()
+    {
+        var work = _workArea;
+        const double width = 36;
+        const double height = 88;
+        const double margin = 8;
+        const double snap = 64;
+
+        var left = Math.Clamp(Left, work.Left + margin, Math.Max(work.Left + margin, work.Right - width - margin));
+        var top = Math.Clamp(Top, work.Top + margin, Math.Max(work.Top + margin, work.Bottom - height - margin));
+        var leftEdge = work.Left + margin;
+        var rightEdge = work.Right - width - margin;
+        var topEdge = work.Top + margin;
+        var bottomEdge = work.Bottom - height - margin;
+
+        if (Math.Abs(left - leftEdge) <= snap) left = leftEdge;
+        else if (Math.Abs(left - rightEdge) <= snap) left = rightEdge;
+        if (Math.Abs(top - topEdge) <= snap) top = topEdge;
+        else if (Math.Abs(top - bottomEdge) <= snap) top = bottomEdge;
+
+        _anchorLeft = left;
+        _anchorTop = top;
+        ApplyBounds();
+        PositionChanged?.Invoke(left, top);
     }
 
     private void AnimateShell(bool opening, bool activate)
@@ -222,10 +278,33 @@ public partial class MiniCaptureWindow : Window
         }), DispatcherPriority.Input);
     }
 
-    private void CollapsedPanel_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    private void CollapsedPanel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (!_enabled) return;
         e.Handled = true;
-        if (_enabled) Expand(false);
+        var beforeLeft = Left;
+        var beforeTop = Top;
+        _dragging = true;
+        try
+        {
+            DragMove();
+        }
+        catch (InvalidOperationException)
+        {
+            _dragging = false;
+            return;
+        }
+        finally
+        {
+            _dragging = false;
+        }
+
+        if (Math.Abs(Left - beforeLeft) < 2 && Math.Abs(Top - beforeTop) < 2)
+        {
+            Expand(false);
+            return;
+        }
+        SnapAndSave();
     }
 
     private void DropHint_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)

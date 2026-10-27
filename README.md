@@ -8,9 +8,9 @@
 
 发布页：**<https://github.com/Tea-2026/moyu-notebook/releases/latest>**
 
-- **安装包**：`Moyu-3.3.0-win-x64-setup.exe`。按当前用户安装到 `%LOCALAPPDATA%\Programs\Moyu`，不需要管理员权限；卸载不会删 `%LOCALAPPDATA%\Moyu` 里的数据。
-- **便携版**：`Moyu-3.3.0-win-x64-portable.zip`，解压后直接运行 `Moyu.exe`。
-- **零安装网页版**：`Moyu-3.3.0-standalone.html`，双击用浏览器打开；它和桌面版的数据不互通。
+- **安装包**：`Moyu-3.3.1-win-x64-setup.exe`。按当前用户安装到 `%LOCALAPPDATA%\Programs\Moyu`，不需要管理员权限；卸载不会删 `%LOCALAPPDATA%\Moyu` 里的数据。
+- **便携版**：`Moyu-3.3.1-win-x64-portable.zip`，解压后直接运行 `Moyu.exe`。
+- **零安装网页版**：`Moyu-3.3.1-standalone.html`，双击用浏览器打开；它和桌面版的数据不互通。
 - **校验**：每个版本附 `SHA256SUMS.txt`。
 
 安装包自带 .NET 8 运行时；需要 Windows 10 1809+ x64 和 Microsoft Edge WebView2 Runtime（Windows 11 和装过新版 Edge 的机器一般已有）。
@@ -138,7 +138,7 @@
 
 **零安装单文件**
 
-从 Releases 下载 `Moyu-3.3.0-standalone.html`，双击用 Edge / Chrome 打开。和桌面版数据相互独立。
+从 Releases 下载 `Moyu-3.3.1-standalone.html`，双击用 Edge / Chrome 打开。和桌面版数据相互独立。
 
 **iPhone / iPad**
 
@@ -159,7 +159,7 @@
 
 ![右下角小窗](docs/clipper.png)
 
-桌面版运行后，屏幕右下角（任务栏上方）会常驻一条很细的鱼尾。点一下展开，拖内容过去也会展开：
+桌面版运行后，屏幕右下角（任务栏上方）会常驻一条很细的鱼尾。按住鱼尾可以拖到桌面任意位置，靠近屏幕边缘会自动吸附，位置会记住；点一下展开，拖内容过去也会展开：
 
 - **新建**：空着的时候点「新建笔记」，写标题、备注、标签，`Ctrl + Enter` 收好；下面还可以直接选「备忘 / 网址 / 密码 / 日记 / 笔记 / 日程」，会把主窗口打开到对应入口。
 - **拖进来**：文字、链接、网页图片、音频链接、本地图片 / 音频文件；拖入不经过选择菜单，纯文字默认备忘，链接和文件按内容收好。

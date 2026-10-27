@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -127,7 +127,7 @@ internal sealed class LocalApiServer
                     {
                         ok = true,
                         app = "moyu",
-                        version = "3.3.0"
+                        version = "3.3.1"
                     }));
                     return;
                 }

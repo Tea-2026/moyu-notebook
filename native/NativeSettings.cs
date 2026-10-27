@@ -7,6 +7,10 @@ internal sealed class NativeSettings
 {
     public bool BrowserClipper { get; set; } = true;
 
+    public double? MiniLeft { get; set; }
+
+    public double? MiniTop { get; set; }
+
     public static NativeSettings Load()
     {
         try

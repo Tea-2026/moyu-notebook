@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.3.1 - 2026-10-28
+
+- The collapsed fish-tail mini window can now be dragged around the desktop.
+- After dragging, it snaps to a nearby screen edge or leaves the free position.
+- The position is saved in native settings and restored on the next launch.
+- Expanding near an edge opens toward the available screen space.
+
 ## 3.3.0 - 2026-10-26
 
 - Replaced the WebView2 browser context menu with a custom paper-style menu.

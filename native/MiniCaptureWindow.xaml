@@ -163,8 +163,8 @@
                   VerticalAlignment="Center"
                   Cursor="Hand"
                   Opacity="0.94"
-                  ToolTip="拖进来，或点一下新建"
-                  MouseLeftButtonUp="CollapsedPanel_MouseLeftButtonUp">
+                  ToolTip="拖进来，或点一下新建；按住鱼尾可以拖到屏幕边缘"
+                  MouseLeftButtonDown="CollapsedPanel_MouseLeftButtonDown">
                 <Border Background="{StaticResource AccentBrush}" CornerRadius="10">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <Viewbox Width="15" Height="12" Stretch="Uniform" HorizontalAlignment="Center">

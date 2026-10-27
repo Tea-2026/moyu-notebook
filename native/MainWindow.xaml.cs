@@ -1017,6 +1017,13 @@ public partial class MainWindow : Window
         try
         {
             _mini = new MiniCaptureWindow(CreateExternalCaptureAsync, OpenMiniTarget);
+            _mini.SetSavedPosition(_nativeSettings.MiniLeft, _nativeSettings.MiniTop);
+            _mini.PositionChanged += (left, top) =>
+            {
+                _nativeSettings.MiniLeft = left;
+                _nativeSettings.MiniTop = top;
+                _nativeSettings.Save();
+            };
             _mini.SetEnabled(_nativeSettings.BrowserClipper);
             _mini.Hide();
             _mini.Closed += (_, _) =>

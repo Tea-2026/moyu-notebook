@@ -57,7 +57,8 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "Installer exited with $($p.ExitCode)" }
           if (-not (Test-Path (Join-Path $dir "Moyu.exe"))) { throw "Moyu.exe was not installed" }
           $version = (Get-Item (Join-Path $dir "Moyu.exe")).VersionInfo.FileVersion
-          if (-not $version.StartsWith("3.3.0")) { throw "Unexpected installed version: $version" }
+          $expected = (Select-String -Path "native/Moyu.App.csproj" -Pattern "<Version>([^<]+)</Version>").Matches[0].Groups[1].Value
+          if (-not $version.StartsWith($expected)) { throw "Unexpected installed version: $version (expected $expected)" }
           $uninstaller = Join-Path $dir "unins000.exe"
           if (-not (Test-Path $uninstaller)) { throw "Uninstaller missing" }
           $u = Start-Process -FilePath $uninstaller -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") -Wait -PassThru

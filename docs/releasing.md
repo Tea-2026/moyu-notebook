@@ -27,7 +27,7 @@ Outputs:
 
 ## GitHub Actions
 
-Push a tag such as `v3.3.0`. The Windows workflow builds the app, builds the installer, installs it silently into a temporary directory, checks the installed version, uninstalls it, and attaches the artifacts to the GitHub release.
+Push a tag such as `v3.3.1`. The Windows workflow builds the app, builds the installer, installs it silently into a temporary directory, checks the installed version, uninstalls it, and attaches the artifacts to the GitHub release.
 
 If the installer check fails on a specific machine but passes in Actions, check the machine's `%TEMP%` ACLs and endpoint security first. The installer itself is per-user and does not require administrator rights.
 
