@@ -44,7 +44,7 @@ public partial class MainWindow : Window
     private bool _hotkeyRegistered;
     private bool _pinHotkeyRegistered;
     private string _hotkeyText = "Ctrl Alt N";
-    private string _pinHotkeyText = "Ctrl Shift P";
+    private string _pinHotkeyText = "Ctrl Alt T";
     private HwndSource? _hwndSource;
     private WinForms.NotifyIcon? _tray;
     private Drawing.Icon? _trayIcon;
@@ -121,6 +121,7 @@ public partial class MainWindow : Window
         };
         ApplyChrome(_isDark);
         SetupTray();
+        UpdatePinButton();
 
         _reminderTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
         _reminderTimer.Tick += (_, _) => CheckScheduleReminders();
@@ -192,9 +193,9 @@ public partial class MainWindow : Window
 
         var pinCandidates = new (uint Modifiers, uint Key, string Label)[]
         {
-            (ModControl | ModShift | ModNoRepeat, 0x50, "Ctrl Shift P"),
-            (ModControl | ModAlt | ModNoRepeat, 0x50, "Ctrl Alt P"),
             (ModControl | ModAlt | ModNoRepeat, 0x54, "Ctrl Alt T"),
+            (ModControl | ModAlt | ModNoRepeat, 0x50, "Ctrl Alt P"),
+            (ModControl | ModShift | ModNoRepeat, 0x50, "Ctrl Shift P"),
             (ModControl | ModAlt | ModNoRepeat, 0x4F, "Ctrl Alt O")
         };
         foreach (var candidate in pinCandidates)
@@ -260,6 +261,30 @@ public partial class MainWindow : Window
     private void MinButton_Click(object sender, RoutedEventArgs e)
     {
         WindowState = WindowState.Minimized;
+    }
+
+    private void PinButton_Click(object sender, RoutedEventArgs e)
+    {
+        ToggleAlwaysOnTop();
+    }
+
+    private void UpdatePinButton()
+    {
+        if (PinButton is null) return;
+        var on = Topmost;
+        PinButton.Background = on
+            ? new SolidColorBrush(Color.FromRgb(0xE2, 0xEC, 0xE4))
+            : System.Windows.Media.Brushes.Transparent;
+        if (on)
+        {
+            PinButton.Foreground = new SolidColorBrush(Color.FromRgb(0x3F, 0x5C, 0x4C));
+            PinButton.ToolTip = "取消置顶 (Ctrl+Alt+T)";
+        }
+        else
+        {
+            PinButton.SetResourceReference(System.Windows.Controls.Control.ForegroundProperty, "ChromeForegroundBrush");
+            PinButton.ToolTip = "钉在最上层 (Ctrl+Alt+T)";
+        }
     }
 
     private void MaxButton_Click(object sender, RoutedEventArgs e)
@@ -864,9 +889,9 @@ public partial class MainWindow : Window
 
             var menu = new WinForms.ContextMenuStrip
             {
-                ShowImageMargin = false,
                 Font = new Drawing.Font("Microsoft YaHei UI", 9F)
             };
+            MoyuMenuRenderer.StyleMenu(menu);
             var captureItem = new WinForms.ToolStripMenuItem("快速记录")
             {
                 Font = new Drawing.Font("Microsoft YaHei UI", 9F, Drawing.FontStyle.Bold)
@@ -912,6 +937,7 @@ public partial class MainWindow : Window
             menu.Items.Add(autoStartItem);
             menu.Items.Add(new WinForms.ToolStripSeparator());
             menu.Items.Add(exitItem);
+            MoyuMenuRenderer.StyleItems(menu.Items);
             menu.Opening += (_, _) =>
             {
                 autoStartItem.Checked = IsAutoStartEnabled();
@@ -1210,6 +1236,7 @@ public partial class MainWindow : Window
             }
         }
         catch { }
+        UpdatePinButton();
         SendPlatform();
     }
 

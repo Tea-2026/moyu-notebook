@@ -1,4 +1,10 @@
-﻿# Changelog
+# Changelog
+
+## 3.3.4 - 2026-10-28
+
+- Added a pin button to the main window title bar for always-on-top.
+- The pin shortcut is back to `Ctrl + Alt + T`.
+- The tray right-click menu now uses the app's cream/sage styling, rounded corners, custom hover states and check marks.
 
 ## 3.3.3 - 2026-10-28
 

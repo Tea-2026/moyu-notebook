@@ -119,6 +119,11 @@
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Right"
                             VerticalAlignment="Top">
+                    <Button x:Name="PinButton"
+                            Style="{StaticResource ChromeButton}"
+                            Content="&#xE840;"
+                            ToolTip="钉在最上层 (Ctrl+Alt+T)"
+                            Click="PinButton_Click" />
                     <Button x:Name="MinButton"
                             Style="{StaticResource ChromeButton}"
                             Content="&#xE921;"

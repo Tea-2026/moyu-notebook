@@ -1,5 +1,5 @@
 ﻿/* 摸鱼笔记本 service worker — offline shell for the PWA build. */
-const VERSION = 'moyu-v3.3.3';
+const VERSION = 'moyu-v3.3.4';
 const SHELL = [
   './',
   './index.html',
