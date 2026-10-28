@@ -24,13 +24,35 @@ public partial class MiniCaptureWindow : Window
     private bool _enabled = true;
     private bool _expanded;
     private bool _hasDraft;
+    private bool _dotActive;
     private bool _saving;
     private bool _animating;
     private bool _dragging;
+    private bool _animatingPosition;
+    private bool _expandedManualPosition;
     private Rect _workArea = SystemParameters.WorkArea;
+    private DockEdge _edge = DockEdge.Right;
+    private CollapsedShape _shape = CollapsedShape.Vertical;
     private double? _anchorLeft;
     private double? _anchorTop;
+    private System.Windows.Point _iconOffset = new(18, 28);
     private DroppedContent? _draft;
+
+    private enum DockEdge
+    {
+        None,
+        Left,
+        Right,
+        Top,
+        Bottom
+    }
+
+    private enum CollapsedShape
+    {
+        Vertical,
+        Horizontal,
+        Circle
+    }
 
     internal MiniCaptureWindow(Func<ExternalCapture, Task<ExternalCaptureResult>> save, Action<string>? openMain = null)
     {
@@ -42,7 +64,7 @@ public partial class MiniCaptureWindow : Window
         _collapseTimer.Tick += (_, _) =>
         {
             _collapseTimer.Stop();
-            if (_expanded && !_hasDraft && !IsKeyboardFocusWithin) Collapse();
+            if (_expanded && !HasDraftOrText() && !IsKeyboardFocusWithin) Collapse();
         };
 
         Left = -10000;
@@ -51,17 +73,39 @@ public partial class MiniCaptureWindow : Window
 
     public bool IsExpanded => _expanded;
 
-    public event Action<double, double>? PositionChanged;
+    public event Action<double, double, string>? PositionChanged;
 
-    public void SetSavedPosition(double? left, double? top)
+    public void SetSavedPosition(double? left, double? top, string? edge)
     {
+        _edge = ParseEdge(edge);
+        _shape = ShapeForEdge(_edge);
         if (left is not null && top is not null)
         {
             _anchorLeft = left;
             _anchorTop = top;
         }
-        if (!_animating && !_dragging) ApplyBounds();
+        ApplyCollapsedShape(false);
+        if (!_animating && !_dragging && !_animatingPosition) ApplyBounds();
     }
+
+    private static DockEdge ParseEdge(string? value) =>
+        Enum.TryParse<DockEdge>(value, true, out var edge) ? edge : DockEdge.Right;
+
+    private static CollapsedShape ShapeForEdge(DockEdge edge) =>
+        edge switch
+        {
+            DockEdge.Left or DockEdge.Right => CollapsedShape.Vertical,
+            DockEdge.Top or DockEdge.Bottom => CollapsedShape.Horizontal,
+            _ => CollapsedShape.Circle
+        };
+
+    private (double Width, double Height) CollapsedSize(CollapsedShape shape) =>
+        shape switch
+        {
+            CollapsedShape.Horizontal => (88, 36),
+            CollapsedShape.Circle => (60, 60),
+            _ => (36, 88)
+        };
 
     public void SetEnabled(bool enabled)
     {
@@ -81,7 +125,7 @@ public partial class MiniCaptureWindow : Window
     public void SetDock(Rect workArea)
     {
         _workArea = workArea;
-        if (!_animating && !_dragging) ApplyBounds();
+        if (!_animating && !_dragging && !_animatingPosition) ApplyBounds();
     }
 
     public void ShowTab()
@@ -117,10 +161,14 @@ public partial class MiniCaptureWindow : Window
         _collapseTimer.Stop();
         if (!_expanded)
         {
+            CacheIconOffset();
+            var iconScreen = new System.Windows.Point(Left + _iconOffset.X, Top + _iconOffset.Y);
+            _expandedManualPosition = false;
             _expanded = true;
             CollapsedPanel.Visibility = Visibility.Collapsed;
             ExpandedPanel.Visibility = Visibility.Visible;
             ApplyBounds();
+            SetShellOrigin(iconScreen, Left, Top, Width, Height);
             if (!IsVisible) Show();
             AnimateShell(true, activate);
         }
@@ -147,30 +195,126 @@ public partial class MiniCaptureWindow : Window
             ApplyBounds();
             return;
         }
+        var placement = GetCollapsedPlacement();
+        var iconTarget = new System.Windows.Point(
+            placement.Left + _iconOffset.X,
+            placement.Top + _iconOffset.Y);
+        SetShellOrigin(iconTarget, Left, Top, Width, Height);
         AnimateShell(false, false);
+    }
+
+    private (double Left, double Top, double Width, double Height) GetCollapsedPlacement()
+    {
+        var work = _workArea;
+        const double margin = 8;
+        var collapsed = CollapsedSize(_shape);
+        var anchorLeft = _anchorLeft ?? (work.Right - 12 - collapsed.Width);
+        var anchorTop = _anchorTop ?? (work.Bottom - 12 - collapsed.Height);
+        var left = _edge switch
+        {
+            DockEdge.Left => work.Left + margin,
+            DockEdge.Right => work.Right - collapsed.Width - margin,
+            _ => anchorLeft
+        };
+        var top = _edge switch
+        {
+            DockEdge.Top => work.Top + margin,
+            DockEdge.Bottom => work.Bottom - collapsed.Height - margin,
+            _ => anchorTop
+        };
+        left = Math.Clamp(left, work.Left + margin, Math.Max(work.Left + margin, work.Right - collapsed.Width - margin));
+        top = Math.Clamp(top, work.Top + margin, Math.Max(work.Top + margin, work.Bottom - collapsed.Height - margin));
+        return (left, top, collapsed.Width, collapsed.Height);
+    }
+
+    private void CacheIconOffset()
+    {
+        if (CollapsedPanel.Visibility != Visibility.Visible) return;
+        FishIcon.UpdateLayout();
+        if (FishIcon.ActualWidth <= 0 || FishIcon.ActualHeight <= 0) return;
+        var center = FishIcon.TranslatePoint(
+            new System.Windows.Point(FishIcon.ActualWidth / 2, FishIcon.ActualHeight / 2),
+            this);
+        if (!double.IsNaN(center.X) && !double.IsNaN(center.Y))
+        {
+            _iconOffset = center;
+        }
+    }
+
+    private void SetShellOrigin(System.Windows.Point icon, double left, double top, double width, double height)
+    {
+        const double margin = 8;
+        var shellWidth = Math.Max(1, width - margin * 2);
+        var shellHeight = Math.Max(1, height - margin * 2);
+        var x = Math.Clamp((icon.X - (left + margin)) / shellWidth, 0, 1);
+        var y = Math.Clamp((icon.Y - (top + margin)) / shellHeight, 0, 1);
+        Shell.RenderTransformOrigin = new System.Windows.Point(x, y);
     }
 
     private void ApplyBounds()
     {
+        if (_dragging || _animatingPosition) return;
+
+        if (!_expanded) ApplyCollapsedShape(false);
+        if (_expanded)
+        {
+            Shell.Background = (System.Windows.Media.Brush)FindResource("PaperBrush");
+            CollapsedBorder.Clip = null;
+        }
+
+        if (_expanded && _expandedManualPosition)
+        {
+            var manualWidth = 360.0;
+            var manualHeight = Math.Min(480.0, Math.Max(300.0, _workArea.Height - 16));
+            if (Math.Abs(Width - manualWidth) > 0.5) Width = manualWidth;
+            if (Math.Abs(Height - manualHeight) > 0.5) Height = manualHeight;
+            Left = Math.Clamp(Left, _workArea.Left + 8, Math.Max(_workArea.Left + 8, _workArea.Right - manualWidth - 8));
+            Top = Math.Clamp(Top, _workArea.Top + 8, Math.Max(_workArea.Top + 8, _workArea.Bottom - manualHeight - 8));
+            return;
+        }
+
         var work = _workArea;
-        var width = _expanded ? 360.0 : 36.0;
+        var collapsed = CollapsedSize(_shape);
+        var width = _expanded ? 360.0 : collapsed.Width;
         var height = _expanded
             ? Math.Min(480.0, Math.Max(300.0, work.Height - 16))
-            : 88.0;
-        var anchorLeft = _anchorLeft ?? (work.Right - 12 - 36);
-        var anchorTop = _anchorTop ?? (work.Bottom - 12 - 88);
+            : collapsed.Height;
+        var anchorLeft = _anchorLeft ?? (work.Right - 12 - collapsed.Width);
+        var anchorTop = _anchorTop ?? (work.Bottom - 12 - collapsed.Height);
+        var centerX = anchorLeft + collapsed.Width / 2;
+        var centerY = anchorTop + collapsed.Height / 2;
         double left;
         double top;
 
         if (_expanded)
         {
-            left = anchorLeft + width <= work.Right - 8 ? anchorLeft : anchorLeft + 36 - width;
-            top = anchorTop + height <= work.Bottom - 8 ? anchorTop : anchorTop + 88 - height;
+            left = _edge switch
+            {
+                DockEdge.Left => work.Left + 8,
+                DockEdge.Right => work.Right - width - 8,
+                _ => centerX - width / 2
+            };
+            top = _edge switch
+            {
+                DockEdge.Top => work.Top + 8,
+                DockEdge.Bottom => work.Bottom - height - 8,
+                _ => centerY - height / 2
+            };
         }
         else
         {
-            left = anchorLeft;
-            top = anchorTop;
+            left = _edge switch
+            {
+                DockEdge.Left => work.Left + 8,
+                DockEdge.Right => work.Right - width - 8,
+                _ => anchorLeft
+            };
+            top = _edge switch
+            {
+                DockEdge.Top => work.Top + 8,
+                DockEdge.Bottom => work.Bottom - height - 8,
+                _ => anchorTop
+            };
         }
 
         left = Math.Clamp(left, work.Left + 8, Math.Max(work.Left + 8, work.Right - width - 8));
@@ -182,30 +326,149 @@ public partial class MiniCaptureWindow : Window
         if (Math.Abs(Top - top) > 0.5) Top = top;
     }
 
+    private void ApplyCollapsedShape(bool animate)
+    {
+        var horizontal = _shape == CollapsedShape.Horizontal;
+        var vertical = _shape == CollapsedShape.Vertical;
+        var circle = _shape == CollapsedShape.Circle;
+        var targetAngle = horizontal ? 90.0 : 0.0;
+        var fishAngle = vertical ? 90.0 : horizontal ? -90.0 : 0.0;
+        var duration = TimeSpan.FromMilliseconds(180);
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+        var angle = new DoubleAnimation(CollapsedRotate.Angle, targetAngle, duration)
+        {
+            EasingFunction = ease
+        };
+        var fish = new DoubleAnimation(FishRotate.Angle, fishAngle, duration)
+        {
+            EasingFunction = ease
+        };
+        if (animate)
+        {
+            CollapsedRotate.BeginAnimation(RotateTransform.AngleProperty, angle);
+            FishRotate.BeginAnimation(RotateTransform.AngleProperty, fish);
+        }
+        else
+        {
+            CollapsedRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+            CollapsedRotate.Angle = targetAngle;
+            FishRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+            FishRotate.Angle = fishAngle;
+        }
+
+        CollapsedPanel.Width = circle ? 44 : 20;
+        CollapsedPanel.Height = circle ? 44 : 72;
+        CollapsedBorder.CornerRadius = circle ? new CornerRadius(22) : new CornerRadius(10);
+        Shell.CornerRadius = circle ? new CornerRadius(22) : new CornerRadius(12);
+        if (circle)
+        {
+            CollapsedBorder.Clip = new EllipseGeometry(new System.Windows.Point(22, 22), 22, 22);
+            Shell.Background = System.Windows.Media.Brushes.Transparent;
+        }
+        else
+        {
+            CollapsedBorder.Clip = null;
+            Shell.Background = (System.Windows.Media.Brush)FindResource("PaperBrush");
+        }
+        CollapsedLine.Visibility = circle ? Visibility.Collapsed : Visibility.Visible;
+        CollapsedDot.Visibility = circle || !_dotActive ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private DockEdge FindNearestEdge(double centerX, double centerY, double width, double height)
+    {
+        var work = _workArea;
+        const double snap = 64;
+        var distances = new (DockEdge Edge, double Distance)[]
+        {
+            (DockEdge.Left, Math.Abs(centerX - width / 2 - work.Left)),
+            (DockEdge.Right, Math.Abs(work.Right - (centerX + width / 2))),
+            (DockEdge.Top, Math.Abs(centerY - height / 2 - work.Top)),
+            (DockEdge.Bottom, Math.Abs(work.Bottom - (centerY + height / 2)))
+        };
+        var nearest = distances.OrderBy(item => item.Distance).First();
+        return nearest.Distance <= snap ? nearest.Edge : DockEdge.None;
+    }
+
     private void SnapAndSave()
     {
         var work = _workArea;
-        const double width = 36;
-        const double height = 88;
         const double margin = 8;
-        const double snap = 64;
+        var actual = PointToScreen(new System.Windows.Point(0, 0));
+        if (!double.IsNaN(actual.X) && !double.IsNaN(actual.Y))
+        {
+            Left = actual.X;
+            Top = actual.Y;
+        }
+        var centerX = Left + Width / 2;
+        var centerY = Top + Height / 2;
+        _edge = FindNearestEdge(centerX, centerY, Width, Height);
+        _shape = ShapeForEdge(_edge);
+        ApplyCollapsedShape(true);
 
-        var left = Math.Clamp(Left, work.Left + margin, Math.Max(work.Left + margin, work.Right - width - margin));
-        var top = Math.Clamp(Top, work.Top + margin, Math.Max(work.Top + margin, work.Bottom - height - margin));
-        var leftEdge = work.Left + margin;
-        var rightEdge = work.Right - width - margin;
-        var topEdge = work.Top + margin;
-        var bottomEdge = work.Bottom - height - margin;
+        var collapsed = CollapsedSize(_shape);
+        var left = _edge switch
+        {
+            DockEdge.Left => work.Left + margin,
+            DockEdge.Right => work.Right - collapsed.Width - margin,
+            _ => centerX - collapsed.Width / 2
+        };
+        var top = _edge switch
+        {
+            DockEdge.Top => work.Top + margin,
+            DockEdge.Bottom => work.Bottom - collapsed.Height - margin,
+            _ => centerY - collapsed.Height / 2
+        };
 
-        if (Math.Abs(left - leftEdge) <= snap) left = leftEdge;
-        else if (Math.Abs(left - rightEdge) <= snap) left = rightEdge;
-        if (Math.Abs(top - topEdge) <= snap) top = topEdge;
-        else if (Math.Abs(top - bottomEdge) <= snap) top = bottomEdge;
+        left = Math.Clamp(left, work.Left + margin, Math.Max(work.Left + margin, work.Right - collapsed.Width - margin));
+        top = Math.Clamp(top, work.Top + margin, Math.Max(work.Top + margin, work.Bottom - collapsed.Height - margin));
 
         _anchorLeft = left;
         _anchorTop = top;
-        ApplyBounds();
-        PositionChanged?.Invoke(left, top);
+        Width = collapsed.Width;
+        Height = collapsed.Height;
+        AnimateWindowTo(left, top);
+        PositionChanged?.Invoke(left, top, _edge.ToString());
+    }
+
+    private void AnimateWindowTo(double targetLeft, double targetTop)
+    {
+        StopWindowAnimation();
+        if (Math.Abs(Left - targetLeft) < 0.5 && Math.Abs(Top - targetTop) < 0.5)
+        {
+            Left = targetLeft;
+            Top = targetTop;
+            return;
+        }
+
+        _animatingPosition = true;
+        var duration = TimeSpan.FromMilliseconds(190);
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var leftAnimation = new DoubleAnimation(Left, targetLeft, duration)
+        {
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.Stop
+        };
+        var topAnimation = new DoubleAnimation(Top, targetTop, duration)
+        {
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.Stop
+        };
+        leftAnimation.Completed += (_, _) =>
+        {
+            StopWindowAnimation();
+            Left = targetLeft;
+            Top = targetTop;
+        };
+        BeginAnimation(LeftProperty, leftAnimation);
+        BeginAnimation(TopProperty, topAnimation);
+    }
+
+    private void StopWindowAnimation()
+    {
+        BeginAnimation(LeftProperty, null);
+        BeginAnimation(TopProperty, null);
+        _animatingPosition = false;
     }
 
     private void AnimateShell(bool opening, bool activate)
@@ -278,10 +541,12 @@ public partial class MiniCaptureWindow : Window
         }), DispatcherPriority.Input);
     }
 
+
     private void CollapsedPanel_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (!_enabled) return;
         e.Handled = true;
+        StopWindowAnimation();
         var beforeLeft = Left;
         var beforeTop = Top;
         _dragging = true;
@@ -305,6 +570,84 @@ public partial class MiniCaptureWindow : Window
             return;
         }
         SnapAndSave();
+    }
+
+
+    private void ExpandedHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_expanded || _animating || _saving) return;
+        if (FindAncestor<System.Windows.Controls.Button>(e.OriginalSource as DependencyObject) is not null) return;
+        e.Handled = true;
+        var beforeLeft = Left;
+        var beforeTop = Top;
+        _dragging = true;
+        try
+        {
+            DragMove();
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+        finally
+        {
+            _dragging = false;
+        }
+
+        if (Math.Abs(Left - beforeLeft) < 2 && Math.Abs(Top - beforeTop) < 2) return;
+        _expandedManualPosition = true;
+        UpdateCollapsedFromExpanded();
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
+    {
+        while (current is not null)
+        {
+            if (current is T match) return match;
+            current = VisualTreeHelper.GetParent(current);
+        }
+        return null;
+    }
+
+    private DockEdge FindNearestExpandedEdge()
+    {
+        var work = _workArea;
+        const double snap = 72;
+        var distances = new (DockEdge Edge, double Distance)[]
+        {
+            (DockEdge.Left, Math.Abs(Left - work.Left)),
+            (DockEdge.Right, Math.Abs(work.Right - (Left + Width))),
+            (DockEdge.Top, Math.Abs(Top - work.Top)),
+            (DockEdge.Bottom, Math.Abs(work.Bottom - (Top + Height)))
+        };
+        var nearest = distances.OrderBy(item => item.Distance).First();
+        return nearest.Distance <= snap ? nearest.Edge : DockEdge.None;
+    }
+
+    private void UpdateCollapsedFromExpanded()
+    {
+        var work = _workArea;
+        const double margin = 8;
+        _edge = FindNearestExpandedEdge();
+        _shape = ShapeForEdge(_edge);
+        var collapsed = CollapsedSize(_shape);
+        var left = _edge switch
+        {
+            DockEdge.Left => work.Left + margin,
+            DockEdge.Right => work.Right - collapsed.Width - margin,
+            _ => Left + (Width - collapsed.Width) / 2
+        };
+        var top = _edge switch
+        {
+            DockEdge.Top => work.Top + margin,
+            DockEdge.Bottom => work.Bottom - collapsed.Height - margin,
+            _ => Top + (Height - collapsed.Height) / 2
+        };
+        left = Math.Clamp(left, work.Left + margin, Math.Max(work.Left + margin, work.Right - collapsed.Width - margin));
+        top = Math.Clamp(top, work.Top + margin, Math.Max(work.Top + margin, work.Bottom - collapsed.Height - margin));
+        _anchorLeft = left;
+        _anchorTop = top;
+        PositionChanged?.Invoke(left, top, _edge.ToString());
     }
 
     private void DropHint_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -343,12 +686,19 @@ public partial class MiniCaptureWindow : Window
         NewKindPanel.Visibility = Visibility.Collapsed;
         FormPanel.Visibility = Visibility.Visible;
         TypePill.Visibility = Visibility.Visible;
-        CollapsedDot.Visibility = Visibility.Visible;
+        _dotActive = true;
+        CollapsedDot.Visibility = _shape == CollapsedShape.Circle ? Visibility.Collapsed : Visibility.Visible;
         SetStatus("");
         ApplyBounds();
         Activate();
         Dispatcher.BeginInvoke(new Action(() => TitleBox.Focus()), DispatcherPriority.Input);
     }
+
+    private bool HasDraftOrText() =>
+        _hasDraft ||
+        _draft is not null ||
+        !string.IsNullOrWhiteSpace(TitleBox.Text) ||
+        !string.IsNullOrWhiteSpace(BodyBox.Text);
 
     private void Window_MouseEnter(object sender, MouseEventArgs e)
     {
@@ -360,19 +710,14 @@ public partial class MiniCaptureWindow : Window
     private void Window_MouseLeave(object sender, MouseEventArgs e)
     {
         CollapsedPanel.Opacity = 0.94;
-        if (!_expanded || _hasDraft || IsKeyboardFocusWithin || _saving) return;
+        if (!_expanded || HasDraftOrText() || IsKeyboardFocusWithin || _saving) return;
         _collapseTimer.Stop();
         _collapseTimer.Start();
     }
 
     private void Window_Deactivated(object? sender, EventArgs e)
     {
-        if (!_expanded || _saving) return;
-        if (_hasDraft)
-        {
-            Collapse();
-            return;
-        }
+        if (!_expanded || _saving || HasDraftOrText()) return;
         _collapseTimer.Stop();
         _collapseTimer.Start();
     }
@@ -397,7 +742,7 @@ public partial class MiniCaptureWindow : Window
     private void Window_DragLeave(object sender, DragEventArgs e)
     {
         DropHint.Background = (System.Windows.Media.Brush)FindResource("DropBrush");
-        if (!_expanded || _hasDraft) return;
+        if (!_expanded || HasDraftOrText()) return;
         _collapseTimer.Stop();
         _collapseTimer.Start();
     }
@@ -431,7 +776,8 @@ public partial class MiniCaptureWindow : Window
             NewKindPanel.Visibility = Visibility.Collapsed;
             FormPanel.Visibility = Visibility.Visible;
             TypePill.Visibility = Visibility.Visible;
-            CollapsedDot.Visibility = Visibility.Visible;
+            _dotActive = true;
+            CollapsedDot.Visibility = _shape == CollapsedShape.Circle ? Visibility.Collapsed : Visibility.Visible;
             SetStatus("");
             _ = Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -695,6 +1041,7 @@ public partial class MiniCaptureWindow : Window
             if (result.Ok)
             {
                 SetStatus("收好了");
+                _dotActive = false;
                 CollapsedDot.Visibility = Visibility.Collapsed;
                 _hasDraft = false;
                 _draft = null;
@@ -783,6 +1130,7 @@ public partial class MiniCaptureWindow : Window
         PreviewFrame.Visibility = Visibility.Collapsed;
         PreviewImage.Source = null;
         AttachmentFrame.Visibility = Visibility.Collapsed;
+        _dotActive = false;
         CollapsedDot.Visibility = Visibility.Collapsed;
         TitleBox.Text = "";
         BodyBox.Text = "";

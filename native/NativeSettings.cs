@@ -11,6 +11,8 @@ internal sealed class NativeSettings
 
     public double? MiniTop { get; set; }
 
+    public string? MiniEdge { get; set; }
+
     public static NativeSettings Load()
     {
         try

@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.3.2 - 2026-10-28
+
+- Fixed the flicker that jumped back to the pre-drag position after releasing the fish tail.
+- Snapping now eases into the edge instead of jumping.
+- The fish tail changes shape: vertical on the left/right edges, horizontal on the top/bottom edges, and a round tab when it is not snapped.
+- Expanding and collapsing now scale from the fish icon's position instead of the bottom-right corner.
+- The expanded quick-capture window can be dragged by its header; it collapses back toward the newly dragged position.
+- The quick-capture window no longer auto-collapses while the title or body contains text.
+
 ## 3.3.1 - 2026-10-28
 
 - The collapsed fish-tail mini window can now be dragged around the desktop.

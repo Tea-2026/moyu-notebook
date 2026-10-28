@@ -127,7 +127,7 @@ internal sealed class LocalApiServer
                     {
                         ok = true,
                         app = "moyu",
-                        version = "3.3.1"
+                        version = "3.3.2"
                     }));
                     return;
                 }
