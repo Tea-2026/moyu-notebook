@@ -1,4 +1,4 @@
-# 摸鱼笔记本
+﻿# 摸鱼笔记本
 
 > 上班可以摸，笔记不能丢。
 
@@ -8,9 +8,9 @@
 
 发布页：**<https://github.com/Tea-2026/moyu-notebook/releases/latest>**
 
-- **安装包**：`Moyu-3.3.2-win-x64-setup.exe`。按当前用户安装到 `%LOCALAPPDATA%\Programs\Moyu`，不需要管理员权限；卸载不会删 `%LOCALAPPDATA%\Moyu` 里的数据。
-- **便携版**：`Moyu-3.3.2-win-x64-portable.zip`，解压后直接运行 `Moyu.exe`。
-- **零安装网页版**：`Moyu-3.3.2-standalone.html`，双击用浏览器打开；它和桌面版的数据不互通。
+- **安装包**：`Moyu-3.3.3-win-x64-setup.exe`。按当前用户安装到 `%LOCALAPPDATA%\Programs\Moyu`，不需要管理员权限；卸载不会删 `%LOCALAPPDATA%\Moyu` 里的数据。
+- **便携版**：`Moyu-3.3.3-win-x64-portable.zip`，解压后直接运行 `Moyu.exe`。
+- **零安装网页版**：`Moyu-3.3.3-standalone.html`，双击用浏览器打开；它和桌面版的数据不互通。
 - **校验**：每个版本附 `SHA256SUMS.txt`。
 
 安装包自带 .NET 8 运行时；需要 Windows 10 1809+ x64 和 Microsoft Edge WebView2 Runtime（Windows 11 和装过新版 Edge 的机器一般已有）。
@@ -132,13 +132,13 @@
 
 从 [Releases](https://github.com/Tea-2026/moyu-notebook/releases/latest) 下载安装包，按当前用户装进 `%LOCALAPPDATA%\Programs\Moyu`；也可以下载便携 ZIP 解压即用。
 
-- `Ctrl + Alt + N` 从任何窗口唤起速记。
-- 关窗不退出，收进系统托盘；右键托盘图标退出。
+- `Ctrl + Alt + N` 从任何窗口唤起速记；`Ctrl + Shift + P` 把主窗口钉在最上层 / 取消置顶。
+- 关窗不退出，收进系统托盘；右键托盘图标可以显示 / 隐藏鱼尾、刷新鱼尾、钉住主窗口或退出。
 - 更新：退出托盘图标后，再运行新版本安装包；数据不会被覆盖。
 
 **零安装单文件**
 
-从 Releases 下载 `Moyu-3.3.2-standalone.html`，双击用 Edge / Chrome 打开。和桌面版数据相互独立。
+从 Releases 下载 `Moyu-3.3.3-standalone.html`，双击用 Edge / Chrome 打开。和桌面版数据相互独立。
 
 **iPhone / iPad**
 
@@ -165,7 +165,7 @@
 - **拖进来**：文字、链接、网页图片、音频链接、本地图片 / 音频文件；拖入不经过选择菜单，纯文字默认备忘，链接和文件按内容收好。
 - 展开和收起是 220ms 的缩放 + 淡入淡出，不抢前台焦点。
 - 网页图片和音频默认只存链接；本地文件会复制到 `%LOCALAPPDATA%\Moyu\files`，原文件挪走也不影响。
-- 托盘右键 →「右下角小窗」可以关掉；「打开右下角小窗」可以随时叫出来。
+- 托盘右键 →「显示鱼尾」可以关掉或重新打开；「刷新鱼尾」会在被遮住或位置异常时重新叫出来；「钉在最上层」把主窗口置顶。
 - 不支持 `edge://` 内置页、PDF 阅读器；网页播放器本身多数不能拖，拖音频链接或本地文件最稳。
 
 ## 备忘里的三种记录
@@ -185,6 +185,7 @@
 | 键 | 动作 |
 | --- | --- |
 | `Ctrl + Alt + N` | 从任何窗口唤起（桌面版） |
+| `Ctrl + Shift + P` | 主窗口置顶 / 取消置顶（桌面版） |
 | `Ctrl + N` / `Alt + N` | 记一条（桌面版 / 网页版） |
 | `Ctrl + Shift + Space` | 应用内速记 |
 | `Ctrl + K` | 搜索 |

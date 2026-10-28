@@ -27,8 +27,12 @@ public partial class MainWindow : Window
     private const int WmHotkey = 0x0312;
     private const uint ModAlt = 0x0001;
     private const uint ModControl = 0x0002;
+    private const uint ModShift = 0x0004;
     private const uint ModNoRepeat = 0x4000;
     private const int HotkeyId = 0x5348;
+    private const int PinHotkeyId = 0x5349;
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private static readonly IntPtr HwndNotTopmost = new(-2);
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string RunValue = "Moyu";
 
@@ -38,7 +42,9 @@ public partial class MainWindow : Window
     private readonly string _startHash;
     private readonly bool _startHidden;
     private bool _hotkeyRegistered;
+    private bool _pinHotkeyRegistered;
     private string _hotkeyText = "Ctrl Alt N";
+    private string _pinHotkeyText = "Ctrl Shift P";
     private HwndSource? _hwndSource;
     private WinForms.NotifyIcon? _tray;
     private Drawing.Icon? _trayIcon;
@@ -52,6 +58,8 @@ public partial class MainWindow : Window
     private readonly NativeSettings _nativeSettings;
     private MiniCaptureWindow? _mini;
     private DispatcherTimer? _miniTimer;
+    private int _miniTick;
+    private WinForms.ToolStripMenuItem? _pinTrayItem;
     private readonly DispatcherTimer _backupTimer;
     private readonly DispatcherTimer _reminderTimer;
     private readonly CredentialStore _credentials;
@@ -103,6 +111,7 @@ public partial class MainWindow : Window
 
         _isDark = IsSystemDark();
         _nativeSettings = NativeSettings.Load();
+        Topmost = _nativeSettings.AlwaysOnTop;
         _credentials = new CredentialStore(NativePaths.CredentialsPath);
         _backupTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(900) };
         _backupTimer.Tick += (_, _) =>
@@ -166,18 +175,44 @@ public partial class MainWindow : Window
             (ModControl | ModAlt | ModNoRepeat, 0x4A, "Ctrl Alt J")
         };
 
+        var captureRegistered = false;
         foreach (var candidate in candidates)
         {
             if (RegisterHotKey(hwnd, HotkeyId, candidate.Modifiers, candidate.Key))
             {
+                captureRegistered = true;
                 _hotkeyRegistered = true;
                 _hotkeyText = candidate.Label;
                 App.Log($"hotkey registered: {candidate.Label}");
                 UpdateTrayTip();
-                return;
+                break;
             }
         }
-        App.Log("hotkey registration failed for all candidates");
+        if (!captureRegistered) App.Log("hotkey registration failed for all candidates");
+
+        var pinCandidates = new (uint Modifiers, uint Key, string Label)[]
+        {
+            (ModControl | ModShift | ModNoRepeat, 0x50, "Ctrl Shift P"),
+            (ModControl | ModAlt | ModNoRepeat, 0x50, "Ctrl Alt P"),
+            (ModControl | ModAlt | ModNoRepeat, 0x54, "Ctrl Alt T"),
+            (ModControl | ModAlt | ModNoRepeat, 0x4F, "Ctrl Alt O")
+        };
+        foreach (var candidate in pinCandidates)
+        {
+            if (RegisterHotKey(hwnd, PinHotkeyId, candidate.Modifiers, candidate.Key))
+            {
+                _pinHotkeyRegistered = true;
+                _pinHotkeyText = candidate.Label;
+                App.Log($"pin hotkey registered: {candidate.Label}");
+                break;
+            }
+        }
+        if (!_pinHotkeyRegistered)
+        {
+            _pinHotkeyText = string.Empty;
+            App.Log("pin hotkey registration failed");
+        }
+        UpdatePinTrayItem();
     }
 
     private void UpdateTrayTip()
@@ -188,12 +223,25 @@ public partial class MainWindow : Window
             : $"摸鱼笔记本 · {_hotkeyText}";
     }
 
+    private void UpdatePinTrayItem()
+    {
+        if (_pinTrayItem is null) return;
+        _pinTrayItem.ToolTipText = string.IsNullOrWhiteSpace(_pinHotkeyText)
+            ? "把主窗口钉在其他窗口上面"
+            : $"把主窗口钉在其他窗口上面（{_pinHotkeyText}）";
+    }
+
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == WmHotkey && wParam.ToInt64() == HotkeyId)
         {
             handled = true;
             ShowAndCapture();
+        }
+        else if (msg == WmHotkey && wParam.ToInt64() == PinHotkeyId)
+        {
+            handled = true;
+            ToggleAlwaysOnTop();
         }
         return IntPtr.Zero;
     }
@@ -654,6 +702,8 @@ public partial class MainWindow : Window
             autostart = IsAutoStartEnabled(),
             hotkey = _hotkeyText,
             hotkeyRegistered = _hotkeyRegistered,
+            pinHotkey = _pinHotkeyText,
+            alwaysOnTop = Topmost,
             version = typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"
         });
     }
@@ -824,12 +874,20 @@ public partial class MainWindow : Window
             captureItem.Click += (_, _) => ShowAndCapture();
             var showItem = new WinForms.ToolStripMenuItem("打开摸鱼笔记本");
             showItem.Click += (_, _) => ShowFromTray();
-            var miniItem = new WinForms.ToolStripMenuItem("打开右下角小窗");
+            var miniItem = new WinForms.ToolStripMenuItem("打开记录小窗");
             miniItem.Click += (_, _) =>
             {
+                SetBrowserClipper(true);
                 _mini?.ShowTab();
                 _mini?.Expand(false);
             };
+            var tailItem = new WinForms.ToolStripMenuItem("显示鱼尾") { CheckOnClick = false };
+            tailItem.Click += (_, _) => ToggleBrowserClipper();
+            var refreshTailItem = new WinForms.ToolStripMenuItem("刷新鱼尾");
+            refreshTailItem.Click += (_, _) => RefreshMiniWindow();
+            var pinItem = new WinForms.ToolStripMenuItem("钉在最上层") { CheckOnClick = false };
+            pinItem.Click += (_, _) => ToggleAlwaysOnTop();
+            _pinTrayItem = pinItem;
             var backupItem = new WinForms.ToolStripMenuItem("打开备份文件夹");
             backupItem.Click += (_, _) => OpenFolder("backup");
             var autoStartItem = new WinForms.ToolStripMenuItem("开机启动") { CheckOnClick = false };
@@ -838,24 +896,27 @@ public partial class MainWindow : Window
                 SetAutoStart(!IsAutoStartEnabled());
                 SendPlatform();
             };
-            var browserItem = new WinForms.ToolStripMenuItem("右下角小窗") { CheckOnClick = false };
-            browserItem.Click += (_, _) => ToggleBrowserClipper();
             var exitItem = new WinForms.ToolStripMenuItem("退出摸鱼笔记本");
             exitItem.Click += (_, _) => ExitApplication();
+            UpdatePinTrayItem();
 
             menu.Items.Add(captureItem);
             menu.Items.Add(showItem);
             menu.Items.Add(miniItem);
-            menu.Items.Add(backupItem);
             menu.Items.Add(new WinForms.ToolStripSeparator());
+            menu.Items.Add(tailItem);
+            menu.Items.Add(refreshTailItem);
+            menu.Items.Add(pinItem);
+            menu.Items.Add(new WinForms.ToolStripSeparator());
+            menu.Items.Add(backupItem);
             menu.Items.Add(autoStartItem);
-            menu.Items.Add(browserItem);
             menu.Items.Add(new WinForms.ToolStripSeparator());
             menu.Items.Add(exitItem);
             menu.Opening += (_, _) =>
             {
                 autoStartItem.Checked = IsAutoStartEnabled();
-                browserItem.Checked = _nativeSettings.BrowserClipper;
+                tailItem.Checked = _nativeSettings.BrowserClipper;
+                pinItem.Checked = Topmost;
             };
 
             _tray.ContextMenuStrip = menu;
@@ -1016,6 +1077,7 @@ public partial class MainWindow : Window
     {
         try
         {
+            _miniTimer?.Stop();
             _mini = new MiniCaptureWindow(CreateExternalCaptureAsync, OpenMiniTarget);
             _mini.SetSavedPosition(_nativeSettings.MiniLeft, _nativeSettings.MiniTop, _nativeSettings.MiniEdge);
             _mini.PositionChanged += (left, top, edge) =>
@@ -1029,7 +1091,6 @@ public partial class MainWindow : Window
             _mini.Hide();
             _mini.Closed += (_, _) =>
             {
-                _miniTimer?.Stop();
                 _mini = null;
             };
 
@@ -1045,7 +1106,14 @@ public partial class MainWindow : Window
 
     private void UpdateMiniWindow()
     {
-        if (_mini is null) return;
+        if (_mini is null)
+        {
+            if (_nativeSettings.BrowserClipper && _screenshotPath is null && _webReady)
+            {
+                SetupMiniWindow();
+            }
+            return;
+        }
         if (!_nativeSettings.BrowserClipper || _screenshotPath is not null)
         {
             _mini.HideTab();
@@ -1054,6 +1122,10 @@ public partial class MainWindow : Window
 
         _mini.SetDock(SystemParameters.WorkArea);
         _mini.ShowTab();
+        if (++_miniTick % 4 == 0)
+        {
+            _mini.EnsureTopmost();
+        }
     }
 
     private void OpenMiniTarget(string target)
@@ -1079,11 +1151,66 @@ public partial class MainWindow : Window
 
     private void ToggleBrowserClipper()
     {
-        _nativeSettings.BrowserClipper = !_nativeSettings.BrowserClipper;
+        SetBrowserClipper(!_nativeSettings.BrowserClipper);
+    }
+
+    private void SetBrowserClipper(bool enabled)
+    {
+        _nativeSettings.BrowserClipper = enabled;
         _nativeSettings.Save();
-        _mini?.SetEnabled(_nativeSettings.BrowserClipper);
-        if (_nativeSettings.BrowserClipper) UpdateMiniWindow();
-        else _mini?.HideTab();
+
+        if (!enabled)
+        {
+            _mini?.SetEnabled(false);
+            _mini?.HideTab();
+            return;
+        }
+
+        if (_mini is null) SetupMiniWindow();
+        _mini?.SetEnabled(true);
+        _mini?.ShowTab();
+        _mini?.EnsureTopmost();
+    }
+
+    private void RefreshMiniWindow()
+    {
+        _nativeSettings.BrowserClipper = true;
+        _nativeSettings.Save();
+        _miniTimer?.Stop();
+        _mini?.Close();
+        _mini = null;
+        SetupMiniWindow();
+        _mini?.ShowTab();
+        _mini?.EnsureTopmost();
+    }
+
+    private void ToggleAlwaysOnTop()
+    {
+        SetAlwaysOnTop(!Topmost);
+    }
+
+    private void SetAlwaysOnTop(bool enabled)
+    {
+        Topmost = enabled;
+        _nativeSettings.AlwaysOnTop = enabled;
+        _nativeSettings.Save();
+        try
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd != IntPtr.Zero)
+            {
+                SetWindowPos(
+                    hwnd,
+                    enabled ? HwndTopmost : HwndNotTopmost,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0x0001 | 0x0002 | 0x0010);
+            }
+        }
+        catch { }
+        SendPlatform();
     }
 
     private async Task<ExternalCaptureResult> CreateExternalCaptureAsync(ExternalCapture capture)
@@ -1249,6 +1376,16 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint uFlags);
+
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
 
@@ -1276,7 +1413,11 @@ public partial class MainWindow : Window
         try
         {
             var hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd != IntPtr.Zero) UnregisterHotKey(hwnd, HotkeyId);
+            if (hwnd != IntPtr.Zero)
+            {
+                UnregisterHotKey(hwnd, HotkeyId);
+                UnregisterHotKey(hwnd, PinHotkeyId);
+            }
             _hwndSource?.RemoveHook(WndProc);
         }
         catch { }

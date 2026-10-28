@@ -1,4 +1,10 @@
-# Changelog
+﻿# Changelog
+
+## 3.3.3 - 2026-10-28
+
+- The fish tail is re-raised as a topmost window periodically, so it is less likely to be covered or disappear behind other windows.
+- The tray menu can show/hide the fish tail, refresh it, and pin the main window above other windows.
+- `Ctrl + Shift + P` toggles the main window's always-on-top state.
 
 ## 3.3.2 - 2026-10-28
 

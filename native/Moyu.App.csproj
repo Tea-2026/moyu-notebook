@@ -16,9 +16,9 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
     <PublishSingleFile>false</PublishSingleFile>
-    <Version>3.3.2</Version>
-    <FileVersion>3.3.2.0</FileVersion>
-    <AssemblyVersion>3.3.2.0</AssemblyVersion>
+    <Version>3.3.3</Version>
+    <FileVersion>3.3.3.0</FileVersion>
+    <AssemblyVersion>3.3.3.0</AssemblyVersion>
     <Company>Moyu</Company>
     <Product>摸鱼笔记本</Product>
     <Description>摸鱼笔记本：把网址、账号和随手想到的事，丢进一个只存在本机的本子里。</Description>

@@ -1,8 +1,10 @@
 using System.IO;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
@@ -37,6 +39,21 @@ public partial class MiniCaptureWindow : Window
     private double? _anchorTop;
     private System.Windows.Point _iconOffset = new(18, 28);
     private DroppedContent? _draft;
+
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoActivate = 0x0010;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint uFlags);
 
     private enum DockEdge
     {
@@ -153,6 +170,30 @@ public partial class MiniCaptureWindow : Window
         if (!IsVisible) return;
         StopShellAnimation();
         Hide();
+    }
+
+    public void EnsureTopmost()
+    {
+        if (!IsVisible) return;
+        try
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd != IntPtr.Zero)
+            {
+                SetWindowPos(
+                    hwnd,
+                    HwndTopmost,
+                    0,
+                    0,
+                    0,
+                    0,
+                    SwpNoMove | SwpNoSize | SwpNoActivate);
+            }
+        }
+        catch
+        {
+            // The window may be closing; the next tick will retry.
+        }
     }
 
     public void Expand(bool activate)
